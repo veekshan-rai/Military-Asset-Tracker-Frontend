@@ -6,12 +6,25 @@ import {
   getEquipmentApi,
   getBasesApi,
 } from '../services/api';
+import { getUser } from '../utils/auth';
 import Loading from '../components/Loading';
 import ErrorMessage from '../components/ErrorMessage';
 import SuccessMessage from '../components/SuccessMessage';
-import { PlusCircle, ShoppingCart } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 
 export default function Purchases() {
+  const currentUser = getUser() || {};
+  const isBaseCommander = currentUser.role === 'BASE_COMMANDER';
+  const assignedBaseId = currentUser.assignedBaseId
+    ? String(currentUser.assignedBaseId)
+    : currentUser.assignedBase?.id
+    ? String(currentUser.assignedBase.id)
+    : '';
+  const assignedBaseName =
+    currentUser.assignedBaseName ||
+    currentUser.assignedBase?.name ||
+    '';
+
   const [purchases, setPurchases] = useState([]);
   const [equipmentList, setEquipmentList] = useState([]);
   const [bases, setBases] = useState([]);
@@ -19,7 +32,7 @@ export default function Purchases() {
 
   // Form State
   const [equipmentId, setEquipmentId] = useState('');
-  const [baseId, setBaseId] = useState('');
+  const [baseId, setBaseId] = useState(isBaseCommander ? assignedBaseId : '');
   const [quantity, setQuantity] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
 
@@ -36,18 +49,21 @@ export default function Purchases() {
   useEffect(() => {
     const fetchDropdownData = async () => {
       try {
-        const [equipRes, basesRes] = await Promise.all([
-          getEquipmentApi(),
-          getBasesApi(),
-        ]);
+        const promises = [getEquipmentApi()];
+        if (!isBaseCommander) {
+          promises.push(getBasesApi());
+        }
+        const [equipRes, basesRes] = await Promise.all(promises);
         setEquipmentList(equipRes.data || []);
-        setBases(basesRes.data || []);
+        if (basesRes) {
+          setBases(basesRes.data || []);
+        }
       } catch (err) {
         console.error('Failed to load dropdown options:', err);
       }
     };
     fetchDropdownData();
-  }, []);
+  }, [isBaseCommander]);
 
   const fetchPurchases = async () => {
     setLoading(true);
@@ -73,7 +89,14 @@ export default function Purchases() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!equipmentId || !baseId || !quantity || !purchaseDate) {
+    const effectiveBaseId = isBaseCommander ? assignedBaseId : baseId;
+
+    if (isBaseCommander && !assignedBaseId) {
+      setError('You must have an assigned base to record purchases.');
+      return;
+    }
+
+    if (!equipmentId || !effectiveBaseId || !quantity || !purchaseDate) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -85,7 +108,7 @@ export default function Purchases() {
     try {
       const payload = {
         equipment: { id: parseInt(equipmentId) },
-        base: { id: parseInt(baseId) },
+        base: { id: parseInt(effectiveBaseId) },
         quantity: parseInt(quantity),
         purchaseDate: new Date(purchaseDate).toISOString(),
       };
@@ -94,7 +117,7 @@ export default function Purchases() {
 
       setSuccess('Purchase recorded successfully!');
       setEquipmentId('');
-      setBaseId('');
+      setBaseId(isBaseCommander ? assignedBaseId : '');
       setQuantity('');
       setPurchaseDate('');
       setShowForm(false);
@@ -127,7 +150,12 @@ export default function Purchases() {
 
         <button
           className="btn btn-primary"
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (!showForm && isBaseCommander) {
+              setBaseId(assignedBaseId);
+            }
+            setShowForm(!showForm);
+          }}
         >
           <PlusCircle size={16} />
           <span>{showForm ? 'Cancel' : 'Record Purchase'}</span>
@@ -165,19 +193,38 @@ export default function Purchases() {
 
               <div className="form-group">
                 <label className="form-label">Receiving Base *</label>
-                <select
-                  className="form-select"
-                  value={baseId}
-                  onChange={(e) => setBaseId(e.target.value)}
-                  required
-                >
-                  <option value="">Select Base</option>
-                  {bases.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.location})
-                    </option>
-                  ))}
-                </select>
+                {isBaseCommander ? (
+                  assignedBaseId ? (
+                    <select
+                      className="form-select"
+                      value={assignedBaseId}
+                      disabled
+                      style={{ opacity: 1, cursor: 'default' }}
+                    >
+                      <option value={assignedBaseId}>
+                        {assignedBaseName || 'Assigned Base'}
+                      </option>
+                    </select>
+                  ) : (
+                    <select className="form-select" disabled>
+                      <option value="">No base assigned</option>
+                    </select>
+                  )
+                ) : (
+                  <select
+                    className="form-select"
+                    value={baseId}
+                    onChange={(e) => setBaseId(e.target.value)}
+                    required
+                  >
+                    <option value="">Select Base</option>
+                    {bases.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.location})
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="form-group">
