@@ -1,10 +1,10 @@
 // src/services/api.js
-// Centralized Axios API configuration for backend communication (http://localhost:8080)
+// Centralized Axios API configuration for backend communication
 
 import axios from 'axios';
 import { getToken, logout } from '../utils/auth';
 
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = 'https://military-asset-tracker-backend.onrender.com';
 
 // Create Axios instance with base URL
 const api = axios.create({
