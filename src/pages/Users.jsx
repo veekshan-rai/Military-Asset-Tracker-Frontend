@@ -71,6 +71,11 @@ export default function Users() {
       return;
     }
 
+    if (role !== 'ADMIN' && !assignedBaseId) {
+      setError('Assigned base is required for this role.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
     setSuccess('');
@@ -191,7 +196,10 @@ export default function Users() {
                 <select
                   className="form-select"
                   value={role}
-                  onChange={(e) => setRole(e.target.value)}
+                  onChange={(e) => {
+                    setRole(e.target.value);
+                    if (error) setError('');
+                  }}
                   required
                 >
                   <option value="LOGISTICS_OFFICER">LOGISTICS_OFFICER</option>
@@ -201,11 +209,17 @@ export default function Users() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Assigned Base</label>
+                <label className="form-label">
+                  Assigned Base{role !== 'ADMIN' ? ' *' : ''}
+                </label>
                 <select
                   className="form-select"
                   value={assignedBaseId}
-                  onChange={(e) => setAssignedBaseId(e.target.value)}
+                  onChange={(e) => {
+                    setAssignedBaseId(e.target.value);
+                    if (error) setError('');
+                  }}
+                  required={role !== 'ADMIN'}
                 >
                   <option value="">No Base Assigned</option>
                   {bases.map((b) => (
